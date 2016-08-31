@@ -13,22 +13,23 @@ use Getopt::Long;
 my @u_dsattr = (
 	"RecordName",			# 0
 	"RealName",			# 1
-	"AuthMethod", "Password",	# 2, 3
+#	"AuthMethod",  # 2
+    "Password",	#  3
 	"UniqueID",			# 4
 	"PrimaryGroupID",		# 5
 	"UserShell",			# 6
 	"HomeDirectoryQuota",		# 7
-	"MailAttribute",		# 8
+#	"MailAttribute",		# 8
 	"NFSHomeDirectory",		# 9
-	"SMBHome",			# 10
+#	"SMBHome",			# 10
 	"HomeDirectory",		# 11
-	"SMBProfilePath",		# 12
-	"SMBHomeDrive",			# 13
-	"SMBScriptPath",		# 14
-	"MCXFlags",			# 15
-	"LastName",			# 16
-	"FirstName",			# 17
-	"EMailAddress",			# 18
+#   "SMBProfilePath",		# 12
+#	"SMBHomeDrive",			# 13
+#	"SMBScriptPath",		# 14
+#	"MCXFlags",			# 15
+#	"LastName",			# 16
+#	"FirstName",			# 17
+#	"EMailAddress",			# 18
 );
 
 # For Group accounts
@@ -56,9 +57,9 @@ my ( $smbdrivelabel, $smblogonscript, $drivelabel, $logonscript );
 GetOptions (
 	"subdir!"	=> \$UseGroupSubDir,
 	"group!"	=> \$Group,
-	"smbdrive:s"	=> \$smbdrivelabel,
-	"smblogon:s"	=> \$smblogonscript,
-	"nfs!"	        => \$Home_via_NFS,
+#	"smbdrive:s"	=> \$smbdrivelabel,
+#	"smblogon:s"	=> \$smblogonscript,
+#	"nfs!"	        => \$Home_via_NFS,
 	"help!"		=> \$help,
 	"version!"	=> \$version,
 	"debug!"	=> \$debug,
@@ -75,7 +76,7 @@ if ( $version ){
 	}
 
 	print ( "$thisScript: " );
-	print ( '$Revision: 1.30 $' );
+	print ( '$Revision: 1.31 $' );
 	print ( "\n" );
 	exit;
 }
