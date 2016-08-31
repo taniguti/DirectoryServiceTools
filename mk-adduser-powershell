@@ -1,0 +1,23 @@
+#!/bin/sh
+
+NUM=$1
+GIVENNAME=Dummy
+SURNAME=User
+PASS="password0-"
+DOMAIN=vmnet3.local
+SERVER="dc01"
+USER_ID=20001
+GROUP_ID=10000
+
+for N in `seq -w 1 ${NUM:=5}`
+do
+ UPN=`echo $GIVENNAME$N@$DOMAIN | tr [:upper:] [:lower:]`
+
+cat << _END
+\$SECPASS = ConvertTo-SecureString -AsPlainText "$PASS" -Force
+New-ADUser -Name "$GIVENNAME $SURNAME$N" -DisplayName "$GIVENNAME $SURNAME$N" -UserPrincipalName $UPN -GivenName "$GIVENNAME" -Surname "$SURNAME$N" -SamAccountName $GIVENNAME$N -path "OU=VMNET3USERS,OU=VMNET3,DC=vmnet3,DC=local" -HomeDrive "H:" -HomeDirectory "\\\\$SERVER\\ADUsers\\$GIVENNAME$N" -Server $SERVER.$DOMAIN -AccountPassword \$SECPASS -ChangePasswordAtLogon \$FALSE -PasswordNeverExpires \$TRUE -OtherAttributes @{'gidNumber'="$GROUP_ID";'uidNumber'="$USER_ID"} -Enable \$TRUE
+_END
+
+ USER_ID=`expr $USER_ID + 1`
+
+done
