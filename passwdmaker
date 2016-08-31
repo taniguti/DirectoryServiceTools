@@ -1,0 +1,127 @@
+#!/usr/bin/perl 
+
+use Text::ParseWords;
+use Getopt::Long;
+use strict;
+
+my ($HOME, $quote_sw, $SERIAL, @items, $LEN, $MAXLENGTH,
+	$HELP, $SALT, $PASSWD, $ADMIN, $LF, $MINILENGTH,
+	$MYSYSTEM,
+);
+
+$MYSYSTEM   = `/usr/bin/uname -s`; chomp $MYSYSTEM;
+$MAXLENGTH  = 12;
+$MINILENGTH = 4;
+
+GetOptions (
+        "admin!" => \$ADMIN,
+        "help!"  => \$HELP,
+	"lf!"    => \$LF,
+	"len=i"  => \$LEN,
+);
+
+if ($HELP){
+	&usage($MAXLENGTH, $MINILENGTH);
+	exit 0;
+}
+
+$HOME = $ENV{HOME};
+$quote_sw = 1;
+$LEN = int ( rand ($MAXLENGTH - $MINILENGTH + 1) ) + $MINILENGTH unless ( defined $LEN);
+$LEN = $MAXLENGTH if ($LEN  > $MAXLENGTH);
+$LEN = $MINILENGTH if ($LEN  < $MINILENGTH);
+
+if ( $MYSYSTEM eq "Darwin" ){
+	$SERIAL = `$HOME/bin/Get_MacInfo.pl --name mac --line`;
+}else{
+	$SERIAL = "2005/02/05 23:38:58,PowerBookG4,V7339BH9NRZ,00:0a:95:da:25:c8,00:0a:95:f2:ee:15";
+}
+@items = &trim ( quotewords( "," ,$quote_sw, $SERIAL ) ) ;
+$items[2] =~ /\S{2}(\S{8})/;
+$SERIAL = $1;
+
+if ( $ADMIN ){
+	$items[3] =~ /:(\S{2})$/;
+	$SALT = $1;
+	$PASSWD = &my_cryptf( "DES", $SERIAL, $SALT); 
+	$PASSWD =~ /^(\S{8})/;
+	$PASSWD = $1;
+}else{
+	$SALT =  &make_salt();
+	$PASSWD = &my_cryptf( "MD5", $SERIAL, $SALT); 
+	$PASSWD =~ /^\S{7}(\S{$LEN})/;
+	$PASSWD = $1;
+}
+print "$PASSWD";
+print "\n" if ( $LF);
+exit 0;
+
+
+#### SUB ROUTINES ####
+sub my_cryptf(){
+        my ($method, $pwd, $salt) = @_    ;
+        my $encryptpwd                    ;
+        my $OPENSSL = "/usr/bin/openssl"  ;
+
+        $method = uc ( $method );
+
+        if ( $method eq "DES" ) {
+                $encryptpwd = crypt ($pwd,  $salt);
+        }
+        if ( $method eq "MD5" ) {
+                $pwd = quotemeta ( $pwd );
+                $encryptpwd = `$OPENSSL passwd -1 -salt $salt $pwd`;
+                chomp $encryptpwd;
+        }
+        return $encryptpwd;
+}
+
+sub make_salt() {
+        my ($tmp, $salt);
+
+        srand();
+        for (my $i = 0; $i < 2; $i++) {
+                $tmp = int(rand(63));
+                if ($tmp < 12) {        # ./0-9
+                        $salt = $salt . chr($tmp + 46);
+                } elsif ($tmp < 38) {   # A-Z
+                        $salt = $salt . chr($tmp + 65 - 12);
+                } elsif ($tmp < 64) {   # a-z
+                        $salt = $salt . chr($tmp + 97 - 38)
+                } else {
+                        return ("");
+                }
+        }
+        return ($salt);
+}
+
+sub trim (){
+        my @out = @_;
+        for (@out) {
+                s/^\s+//; s/\s+$//;
+        }
+        return wantarray ? @out : $out[0];
+}
+
+sub usage(){
+	my ($MAX, $MIN) = @_;
+	my $I;
+	$I = `/usr/bin/basename $0`; 
+	chomp $I;
+
+        print <<__USE__
+
+#####################################
+              U S A G E
+#####################################
+
+Hi $ENV{USER}.
+
+$I has four options.
+        --help     ; Show this message
+        --admin    ; Make same passwd each time each machine. 
+	--lf       ; Add LF code. This is for display check.
+	--len n    ; Fix passward length. 'n' must be from $MIN to $MAX.
+
+__USE__
+}
