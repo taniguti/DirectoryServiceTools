@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-#$Id: csv2importfile.pl,v 1.30 2009/08/12 14:13:43 taniguti Exp $
 
 use strict;
 use utf8;
@@ -7,79 +6,47 @@ use Text::ParseWords;
 use Getopt::Long;
 
 ################################################################
-# Attribute type difinition list
-################################################################
-# For user accounts
-my @u_dsattr = (
-	"RecordName",			# 0
-	"RealName",			# 1
-#	"AuthMethod",  # 2
-    "Password",	#  3
-	"UniqueID",			# 4
-	"PrimaryGroupID",		# 5
-	"UserShell",			# 6
-	"HomeDirectoryQuota",		# 7
-#	"MailAttribute",		# 8
-	"NFSHomeDirectory",		# 9
-#	"SMBHome",			# 10
-	"HomeDirectory",		# 11
-#   "SMBProfilePath",		# 12
-#	"SMBHomeDrive",			# 13
-#	"SMBScriptPath",		# 14
-#	"MCXFlags",			# 15
-#	"LastName",			# 16
-#	"FirstName",			# 17
-#	"EMailAddress",			# 18
-);
-
-# For Group accounts
-my @g_dsattr = (
-	"RecordName",			# 1
-	"PrimaryGroupID",		# 2
-	"GroupMembership",		# 3
-);
-
-################################################################
 # Parameter definitons
 ################################################################
-my @dsattr		;
-my $UseGroupSubDir	;
-my $help		;
-my $Group		;
-my $Request		;
-my $DiskQuotaSize	;
-my $Home_via_NFS	;
-my $version		;
-my $thisScript		;
-my $debug = 0		;
-my ( $smbdrivelabel, $smblogonscript, $drivelabel, $logonscript );
+my $debug = 0;
+my ($help, $version, $type, $protocol);
+my (%u_dsattr, %g_dsattr);
 
-GetOptions (
-	"subdir!"	=> \$UseGroupSubDir,
-	"group!"	=> \$Group,
-#	"smbdrive:s"	=> \$smbdrivelabel,
-#	"smblogon:s"	=> \$smblogonscript,
-#	"nfs!"	        => \$Home_via_NFS,
-	"help!"		=> \$help,
-	"version!"	=> \$version,
-	"debug!"	=> \$debug,
+################################################################
+# Attribute type difinition list
+################################################################
+%u_dsattr = (
+  # AttributeKey                # Value
+    FirstName => "",            # OD
+    LastName  => "",            # User02
+    RecordName  => "",          # oduser02
+    Password  => "",            # ********
+    UserShell  => "/bin/bash",  # /bin/bash
+    UniqueID  => "",            # 1002
+    NFSHomeDirectory  => "",    # /Network/Servers/pms01.vmnet3.com/Volumes/Macintosh HD/Shared/smb-homes/oduser02
+    HomeDirectoryQuota  => "",  # 1000000000
+    EMailAddress  => "",        # oduser02@xmini2.vmnet3.local
+    Comment  => "",             # oduser02 note
+    Keywords  => "",            # oduser
+    PrimaryGroupID  => 20,      # 20
+    RealName => "",             # OD User02
+    HomeDirectory => "",        # <home_dir><url>smb\://pms01.vmnet3.com/smb-homes</url><path>oduser02</path></home_dir>
 );
 
-# Show version
-if ( $version ){
-	$thisScript = `basename $0`;
-	chomp $thisScript;
+%g_dsattr = (
+	"RecordName" => "",
+	"PrimaryGroupID" => "",
+	"GroupMembership" => "",
+);
 
-	if ( $help ){ 
-		&usage(); 
-		print ( "---------------------------------------------\n" );
-	}
+GetOptions (
+	"help!"		=> \$help,
+	"debug!"	=> \$debug,
+    "type:s"    => \$type,
+    "proto:s"   => \$protocol,
+);
 
-	print ( "$thisScript: " );
-	print ( '$Revision: 1.31 $' );
-	print ( "\n" );
-	exit;
-}
+$type = "user";
 
 # Show help
 if ($help){
@@ -87,20 +54,16 @@ if ($help){
 	exit;
 }
 
-#Definiston Select
-if ( $Group ) {
-	@dsattr  = @g_dsattr; $Request = "Groups";
-}else{
-	@dsattr  = @u_dsattr; $Request = "Users";
+## Output into STDOUT
+# Print definition line.
+if ( $type == "user" ){
+   &print_define(%u_dsattr);
+#}else{
+#   &print_define($type,%g_dsattr);
 }
 
-$smbdrivelabel  = "none" unless ( $smbdrivelabel );
-$smblogonscript = "none" unless ( $smblogonscript );
 
-## Output import file
-# Print definition line.
-&print_define($Request,@dsattr);
-
+__END__
 # Print entries.
 if ( $Request eq "Groups" ){
 	&print_grouprecord(@dsattr);
@@ -115,13 +78,9 @@ if ( $Request eq "Groups" ){
 
 exit;
 
-################################################################
-# SUB ROUTINES
-################################################################
-
 sub print_userrecord(){
 # mksample.pl
-# 0        1          2        3   4         5       
+# 0        1          2        3   4         5
 # RealName,RecordName,password,UID,2nd Group,2nd GID,
 # 6           7         8     9		 10
 # home server,home root,shell,Disk Quota,
@@ -194,9 +153,9 @@ sub print_userrecord(){
 
 
 		( $dsAttr{"SMBProfilePath"},
-		  $dsAttr{"SMBScriptPath"}, 
+		  $dsAttr{"SMBScriptPath"},
 		  $dsAttr{"SMBHomeDrive"},
-		  $dsAttr{"SMBHome"}) = &smbhomeset($dsAttr{"RecordName"}, 
+		  $dsAttr{"SMBHome"}) = &smbhomeset($dsAttr{"RecordName"},
 						    $homehost,
 						    $drivelabel,
 						    $logonscript );
@@ -204,7 +163,7 @@ sub print_userrecord(){
 		$homeroot = `basename $items[7]`;
 		chomp $homeroot;
 
-		$dsAttr{"NFSHomeDirectory"} = join ("", 
+		$dsAttr{"NFSHomeDirectory"} = join ("",
 			"/Network/Servers/",
 			$homehostfqdn,
 			$items[7],
@@ -265,8 +224,8 @@ sub print_userrecord(){
 }
 
 sub smbhomeset (){
-	my ($profile, $label, $home, $script, $homesrv, $user); 
-	($user, $homesrv, $label, $script) = @_; 
+	my ($profile, $label, $home, $script, $homesrv, $user);
+	($user, $homesrv, $label, $script) = @_;
 
 	$script  = "" if ( $script eq "none" );
 	if ( $label eq "none"){
@@ -281,7 +240,7 @@ sub smbhomeset (){
 		$home = "\\\\\\\\" . lc $homesrv . "\\\\"  . lc $user;
 		$profile = $home . "\\\\" . "Library\\\\Windows_profiles";
 	}
-	return ($profile, $script, $label, $home ); 
+	return ($profile, $script, $label, $home );
 }
 
 sub cnv2byte(){
@@ -345,19 +304,19 @@ sub print_grouprecord(){
 }
 
 sub trim (){
-	my @out = @_;
-	for (@out) { s/^\s+// ; s/\s+$// ; }
-	return wantarray ? @out : $out[0];
+    my @out = @_;
+    for (@out) { s/^\s+// ; s/\s+$// ; }
+    return wantarray ? @out : $out[0];
 }
 
 sub print_define(){
-	my (@uattr, @separaters, $type, $request_type, $i);
+	my (%uattr, @separaters, $type, $request_type, $i);
 
-	($request_type, @uattr) = @_;
+	($request_type, %uattr) = @_;
 
 	@separaters = ( "0x0A","0x5C","0x3A","0x2C" );
 	$type = "dsRecTypeStandard:$request_type";
-	for ( $i = 0; $i <= $#uattr; $i++ ) { 
+	for ( $i = 0; $i <= $#uattr; $i++ ) {
 		$uattr[$i] = "dsAttrTypeStandard:$uattr[$i]";
 	}
 
@@ -398,12 +357,12 @@ sub usage(){
 
 Hi $ENV{USER}.
 
-$myf reads a cvsfile ( or stdin ) which contains user list by csv file format and then output converted list into standerd out. If you add option --smbdrive following single charactor, $myf add information for SMB home directory for each users. If you add option --subdir, user's home are grouped by thier workgroup.  If you provide user homes via NFS, you must use option --nfs or user homes will fail to mount. 
-Option --group outputs converted file for group import. 
+$myf reads a cvsfile ( or stdin ) which contains user list by csv file format and then output converted list into standerd out. If you add option --smbdrive following single charactor, $myf add information for SMB home directory for each users. If you add option --subdir, user's home are grouped by thier workgroup.  If you provide user homes via NFS, you must use option --nfs or user homes will fail to mount.
+Option --group outputs converted file for group import.
 Option --help will show this message.
 Option --version will show version of this script.
 
-csvfile must be like that, 
+csvfile must be like that,
 Sample User01,sample01,passwd,9001,samples,9000,homehostname.domain.net,/Volumes/RAID5HD/Users/home,/bin/bash,500m
 
 
