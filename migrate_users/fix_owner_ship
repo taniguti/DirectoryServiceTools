@@ -1,0 +1,34 @@
+#!/bin/bash
+
+usage(){
+    echo "Type 'sudo $0 -o [OLD_USER_NAME|OLD_UID] -n [NEW_USER_NEME|NEW_UID]'"
+}
+
+if [ `whoami` != "root" ]; then usage ; exit 2; fi
+
+while getopts "n:o:h" opt
+do
+    case $opt in
+    n)
+        NEWID=$OPTARG
+        ;;
+    o)
+        OLDUID=$OPTARG
+        ;;
+     :|h|\?)
+        usage
+        exit 1
+        ;;
+  esac
+done
+
+if [ $# -eq 0 ]; then usage ; exit 0; fi
+if [ -z ${NEWID} || -z ${OLDUID} ]; then usage ; exit 1 ; fi
+
+find / -name Backups.backupdb -prune -or \( -type f -or -type d \) -user $OLDUID -print0  | while read ITEM
+do
+    isLOCK=`ls -lO "$ITEM" | awk '$5 == "uchg" {print $0 }' | wc -l`
+    if [ $isLOCK -eq 1 ]; then chflags nouchg "$ITEM" ; fi
+    chown $NEWUID "$ITEM"
+    if [ $isLOCK -eq 1 ]; then chflags uchg   "$ITEM" ; fi
+done
