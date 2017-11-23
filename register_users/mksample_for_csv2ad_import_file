@@ -6,10 +6,10 @@ SERVER=dc01.$DOMAIN
 OU="OU=VMNET3USERS,OU=VMNET3,DC=vmnet3,DC=local"
 GN=Sample
 FN=User
-PASS="password0-"
+PASS="your_secret_password"
 UPN=`echo $GN | tr [:upper:] [:lower:]`
 
 for N in `seq -w 1 ${NUM:-5}`
 do
-  echo "dsadd user \"CN=$GN $FN$N,$OU\" -samid $UPN$N -ln $GN -fn $FN$N -display \"$GN $FN$N\" -pwd $PASS -s $SERVER -acctexpires never -upn $UPN$N@$DOMAIN"
+    echo "dsadd user \"CN=$GN $FN$N,$OU\" -samid $UPN$N -ln $GN -fn $FN$N -display \"$GN $FN$N\" -pwd $PASS -s $SERVER -acctexpires never -upn $UPN$N@$DOMAIN"
 done

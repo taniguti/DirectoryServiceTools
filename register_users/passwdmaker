@@ -5,8 +5,8 @@ use Getopt::Long;
 use strict;
 
 my ($HOME, $quote_sw, $SERIAL, @items, $LEN, $MAXLENGTH,
-	$HELP, $SALT, $PASSWD, $ADMIN, $LF, $MINILENGTH,
-	$MYSYSTEM,
+    $HELP, $SALT, $PASSWD, $ADMIN, $LF, $MINILENGTH,
+    $MYSYSTEM,
 );
 
 $MYSYSTEM   = `/usr/bin/uname -s`; chomp $MYSYSTEM;
@@ -16,13 +16,13 @@ $MINILENGTH = 4;
 GetOptions (
         "admin!" => \$ADMIN,
         "help!"  => \$HELP,
-	"lf!"    => \$LF,
-	"len=i"  => \$LEN,
+    "lf!"    => \$LF,
+    "len=i"  => \$LEN,
 );
 
 if ($HELP){
-	&usage($MAXLENGTH, $MINILENGTH);
-	exit 0;
+    &usage($MAXLENGTH, $MINILENGTH);
+    exit 0;
 }
 
 $HOME = $ENV{HOME};
@@ -32,25 +32,25 @@ $LEN = $MAXLENGTH if ($LEN  > $MAXLENGTH);
 $LEN = $MINILENGTH if ($LEN  < $MINILENGTH);
 
 if ( $MYSYSTEM eq "Darwin" ){
-	$SERIAL = `$HOME/bin/Get_MacInfo.pl --name mac --line`;
+    $SERIAL = `$HOME/bin/Get_MacInfo.pl --name mac --line`;
 }else{
-	$SERIAL = "2005/02/05 23:38:58,PowerBookG4,V7339BH9NRZ,00:0a:95:da:25:c8,00:0a:95:f2:ee:15";
+    $SERIAL = "2005/02/05 23:38:58,PowerBookG4,V7339BH9NRZ,00:0a:95:da:25:c8,00:0a:95:f2:ee:15";
 }
 @items = &trim ( quotewords( "," ,$quote_sw, $SERIAL ) ) ;
 $items[2] =~ /\S{2}(\S{8})/;
 $SERIAL = $1;
 
 if ( $ADMIN ){
-	$items[3] =~ /:(\S{2})$/;
-	$SALT = $1;
-	$PASSWD = &my_cryptf( "DES", $SERIAL, $SALT); 
-	$PASSWD =~ /^(\S{8})/;
-	$PASSWD = $1;
+    $items[3] =~ /:(\S{2})$/;
+    $SALT = $1;
+    $PASSWD = &my_cryptf( "DES", $SERIAL, $SALT);
+    $PASSWD =~ /^(\S{8})/;
+    $PASSWD = $1;
 }else{
-	$SALT =  &make_salt();
-	$PASSWD = &my_cryptf( "MD5", $SERIAL, $SALT); 
-	$PASSWD =~ /^\S{7}(\S{$LEN})/;
-	$PASSWD = $1;
+    $SALT =  &make_salt();
+    $PASSWD = &my_cryptf( "MD5", $SERIAL, $SALT);
+    $PASSWD =~ /^\S{7}(\S{$LEN})/;
+    $PASSWD = $1;
 }
 print "$PASSWD";
 print "\n" if ( $LF);
@@ -104,10 +104,10 @@ sub trim (){
 }
 
 sub usage(){
-	my ($MAX, $MIN) = @_;
-	my $I;
-	$I = `/usr/bin/basename $0`; 
-	chomp $I;
+    my ($MAX, $MIN) = @_;
+    my $I;
+    $I = `/usr/bin/basename $0`;
+    chomp $I;
 
         print <<__USE__
 
@@ -119,9 +119,9 @@ Hi $ENV{USER}.
 
 $I has four options.
         --help     ; Show this message
-        --admin    ; Make same passwd each time each machine. 
-	--lf       ; Add LF code. This is for display check.
-	--len n    ; Fix passward length. 'n' must be from $MIN to $MAX.
+        --admin    ; Make same passwd each time each machine.
+    --lf       ; Add LF code. This is for display check.
+    --len n    ; Fix passward length. 'n' must be from $MIN to $MAX.
 
 __USE__
 }

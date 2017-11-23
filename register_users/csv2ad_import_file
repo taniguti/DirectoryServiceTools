@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-# Takanori TANIGUCHI
 
 use strict;
 use utf8;
@@ -10,20 +9,20 @@ use Getopt::Long;
 # Difinition list; this is the 1st line of file.
 ################################################################
 my @ad_dsattr = (
-	"DN",
-	"objectClass",
-	"distinguishedName",
-	"instanceType",
-	"name",	
-	"objectCategory",
-	"cn",
-	"displayName",
-	"sAMAccountName",
-	"sn",
-	"givenName",
-	"userPrincipalName",
-	"homeDirectory",
-	"homeDrive",
+    "DN",
+    "objectClass",
+    "distinguishedName",
+    "instanceType",
+    "name",
+    "objectCategory",
+    "cn",
+    "displayName",
+    "sAMAccountName",
+    "sn",
+    "givenName",
+    "userPrincipalName",
+    "homeDirectory",
+    "homeDrive",
 );
 my $addomain;
 my @domainlabels;
@@ -44,7 +43,7 @@ GetOptions (
         "addomain:s"		=> \$addomain,
         "homedrivelabel:s"	=> \$homedrivelabel,
         "help!"			=> \$help,
-	"debug!"		=> \$debug,
+    "debug!"		=> \$debug,
 );
 
 # Show help
@@ -58,69 +57,69 @@ print ( join (',', @ad_dsattr), "\n");
 
 # Parsing and out put.
 while(<>){
-	# Parsing 
-	chomp;
-	s/,$//;
+    # Parsing
+    chomp;
+    s/,$//;
 
-	next if /^\s*$/;
-	next if /^\s*\#/;
-	next if /^,,,/;
-	@items = &trim ( quotewords( "," ,$quote_sw, $_ ) ) ;
+    next if /^\s*$/;
+    next if /^\s*\#/;
+    next if /^,,,/;
+    @items = &trim ( quotewords( "," ,$quote_sw, $_ ) ) ;
 
-	$dsAttr{"RealName"}	= $items[0];
-	$dsAttr{"cn"}		= $dsAttr{"RealName"};
-	$dsAttr{"displayName"}	= $dsAttr{"RealName"};
-	$dsAttr{"name"}		= $dsAttr{"RealName"};
-	($myouji, $oname)	= split(/ /,$dsAttr{"RealName"});
-	$dsAttr{"LastName"}     = "$myouji";
-	$dsAttr{"FirstName"}    = "$oname";
-	$dsAttr{"RecordName"}	= lc $items[1];
-	$dsAttr{"sAMAccountName"} = $dsAttr{"RecordName"};
-	$dsAttr{"HomeServer"}	= lc $items[6];
-	$homedrivelabel	= uc $homedrivelabel ;
-	$homedrivelabel = $homedrivelabel . ":" unless ( $homedrivelabel =~ /:$/ );
-	$dsAttr{"homeDrive"}	= $homedrivelabel;
-	$dsAttr{"homeDirectory"} = "\\\\\\\\" . $dsAttr{"HomeServer"} . 
-					"\\\\" . $items[7] . "\\\\". $dsAttr{"RecordName"} ;
-	$dsAttr{"userPrincipalName"} = $dsAttr{"RecordName"}  . "@" . $addomain;
-	$dsAttr{"sn"}		= $dsAttr{"LastName"};
-	$dsAttr{"givenName"}	= $dsAttr{"FirstName"};
+    $dsAttr{"RealName"}	= $items[0];
+    $dsAttr{"cn"}		= $dsAttr{"RealName"};
+    $dsAttr{"displayName"}	= $dsAttr{"RealName"};
+    $dsAttr{"name"}		= $dsAttr{"RealName"};
+    ($myouji, $oname)	= split(/ /,$dsAttr{"RealName"});
+    $dsAttr{"LastName"}     = "$myouji";
+    $dsAttr{"FirstName"}    = "$oname";
+    $dsAttr{"RecordName"}	= lc $items[1];
+    $dsAttr{"sAMAccountName"} = $dsAttr{"RecordName"};
+    $dsAttr{"HomeServer"}	= lc $items[6];
+    $homedrivelabel	= uc $homedrivelabel ;
+    $homedrivelabel = $homedrivelabel . ":" unless ( $homedrivelabel =~ /:$/ );
+    $dsAttr{"homeDrive"}	= $homedrivelabel;
+    $dsAttr{"homeDirectory"} = "\\\\\\\\" . $dsAttr{"HomeServer"} .
+    "\\\\" . $items[7] . "\\\\". $dsAttr{"RecordName"} ;
+    $dsAttr{"userPrincipalName"} = $dsAttr{"RecordName"}  . "@" . $addomain;
+    $dsAttr{"sn"}		= $dsAttr{"LastName"};
+    $dsAttr{"givenName"}	= $dsAttr{"FirstName"};
 
-	$dsAttr{"objectClass"}	= "user";
-	$dsAttr{"instanceType"}	= 4;
+    $dsAttr{"objectClass"}	= "user";
+    $dsAttr{"instanceType"}	= 4;
 
-	$DC_SUFFIX = $addomain;	
-	$DC_SUFFIX =~ s/\./,DC=/g;
-	$DC_SUFFIX = "DC=" .  $DC_SUFFIX;
+    $DC_SUFFIX = $addomain;
+    $DC_SUFFIX =~ s/\./,DC=/g;
+    $DC_SUFFIX = "DC=" .  $DC_SUFFIX;
 
 
-	$dsAttr{"DN"} = "\"" . "CN=" . $dsAttr{"cn"} . ",CN=Users," . $DC_SUFFIX . "\"";
-	$dsAttr{"distinguishedName"} = $dsAttr{"DN"};
-	$dsAttr{"objectCategory"} =  "\"" . "CN=Person,CN=Schema,CN=Configuration," . $DC_SUFFIX . "\"";
+    $dsAttr{"DN"} = "\"" . "CN=" . $dsAttr{"cn"} . ",CN=Users," . $DC_SUFFIX . "\"";
+    $dsAttr{"distinguishedName"} = $dsAttr{"DN"};
+    $dsAttr{"objectCategory"} =  "\"" . "CN=Person,CN=Schema,CN=Configuration," . $DC_SUFFIX . "\"";
 
-	if ( $debug ){
-		print "#______S_T_A_R_T_______D_E_B_U_G__________________________\n";
-		print "# AD Domain is $addomain\n";
-		print "# Home drive label is $homedrivelabel\n";
-		print "\n";
-		print "# Realname is $dsAttr{RealName}\n";
-		print "# Last Name is $dsAttr{LastName}\n";
-		print "# First Name is $dsAttr{FirstName}\n";
-		print "# Record Name is $dsAttr{RecordName}\n";
-		print "# Home Server is $dsAttr{HomeServer}\n";
-	
-		print "\n";
-		for ( $i = 0; $i <= $#ad_dsattr ; $i++ ){
-			print "[$i]:$ad_dsattr[$i] is $dsAttr{$ad_dsattr[$i]}\n";
-		}
-		print "#______E_N_D____o_f____D_E_B_U_G__________________________\n";
+    if ( $debug ){
+    print "#______S_T_A_R_T_______D_E_B_U_G__________________________\n";
+    print "# AD Domain is $addomain\n";
+    print "# Home drive label is $homedrivelabel\n";
+    print "\n";
+    print "# Realname is $dsAttr{RealName}\n";
+    print "# Last Name is $dsAttr{LastName}\n";
+    print "# First Name is $dsAttr{FirstName}\n";
+    print "# Record Name is $dsAttr{RecordName}\n";
+    print "# Home Server is $dsAttr{HomeServer}\n";
 
-	}
+    print "\n";
+    for ( $i = 0; $i <= $#ad_dsattr ; $i++ ){
+    print "[$i]:$ad_dsattr[$i] is $dsAttr{$ad_dsattr[$i]}\n";
+    }
+    print "#______E_N_D____o_f____D_E_B_U_G__________________________\n";
 
-	for ( $i = 0; $i < $#ad_dsattr ; $i++ ){
-		print "$dsAttr{$ad_dsattr[$i]},";
-	}
-	print "$dsAttr{$ad_dsattr[$#ad_dsattr]}\r\n";
+    }
+
+    for ( $i = 0; $i < $#ad_dsattr ; $i++ ){
+    print "$dsAttr{$ad_dsattr[$i]},";
+    }
+    print "$dsAttr{$ad_dsattr[$#ad_dsattr]}\r\n";
 }
 
 ########################################################
