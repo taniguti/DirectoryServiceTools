@@ -1,47 +1,47 @@
-#!/usr/bin/perl -w
-#$Id: mksamplecsv.pl,v 1.17 2007/06/07 14:26:02 hoi Exp $
+#!/usr/bin/perl
 
-# Perl modules
 use strict;
-use Getopt::Long;
+use warnings;
+use Getopt::Long qw(:config posix_default no_ignore_case no_ignore_case_always);
+use Pod::Usage;
 
-# init
-my $sname  = "sample";
-my $suid   = "11025";
-my $sgid   = "11025";
-my $sgname = "samples";
-my $spass  = "passwd";
-my $sshell = "/bin/bash";
-my $ssrv   =  `/bin/hostname -s`;
-my $sroot   =  "home";
-my $num    = 5;
+# Default Values
+my $sname   = "sample"; #Sample User accout
+my $suid    = "11025";
+my $sgid    = "11025";
+my $sgname  = "samples";
+my $spass   = "passwd";
+my $sshell  = "/bin/bash";
+my $ssrv    = `/bin/hostname -s`;
+my $sroot   = "home";
+my $num     = 5;
 my $min_uid = 502;
 my $max_uid = 2147483648;
-my ( $help, $debug, $name, $gname, $shell, $rn, $fn, $max_num,
+
+my ( $debug, $name, $gname, $shell, $rn, $fn, $max_num,
     $realname, $i,  $uid, $real, @realusername, @realaccount,
     @realgroup, @realgid, @realgroupname, @realgroupid,
 );
 
-chomp $ssrv;
-
 # optons
 GetOptions (
-    "user:s"  => \$sname,  # Sample account
-    "uid:i"   => \$suid,   # Sample uid
-    "gid:i"   => \$sgid,   # Sample gid
-    "group:s" => \$sgname, # Sample group name
-    "num=i"   => \$num,    # Sample number
-    "passwd:s"   => \$spass,    # Sample passwd
-    "homesrv:s"   => \$ssrv,  # Sample home server
-    "homeroot:s"   => \$sroot,  # Sample home root dir
-    "shell:s"   => \$sshell,  # Sample user login shell
-    "help!"    => \$help,   # Request help
-    "debug!"   => \$debug,  # Request debug
-    "real!"   => \$real,  # Request real user sample
-);
+    'user|U:s'     => \$sname,
+    'uid|u:i'      => \$suid,
+    'group|G:s'    => \$sgname,
+    'gid|g:i'      => \$sgid,
+    'num|n:i'      => \$num,
+    'passwd|p:s'   => \$spass,
+    'homesrv|S:s'  => \$ssrv,
+    'homeroot|d:s' => \$sroot,
+    'shell|s:s'    => \$sshell,
 
-if ($help){ &usage($ssrv); exit 0; }
+    'real|r!'      => \$real,
 
+    'debug|d+'     => \$debug,
+    'help|h|?'     => sub { pod2usage(-verbose=>2) },
+    ) or pod2usage();
+
+chomp $ssrv;
 $name	= lc $sname ;
 $gname	= lc $sgname ;
 $shell	= lc $sshell ;
@@ -98,37 +98,36 @@ if ( $real ){
 
     $num = $#realusername if ($num > $#realusername);
  }
-print "#";
-print "Full name,";
-print "account,";
-print "password,";
+
+print "# ";
+print "Full_name,";
+print "Account,";
+print "Password,";
 print "UID,";
 print "2nd Group,";
 print "2nd GID,";
-print "home server,";
-print "home root,";
-print "shell";
+print "Home_Server,";
+print "Network_Home_Directory,";
+print "Login_Shell";
 print "\n";
 
+my $keta = length($num);
 for ($i = 1; $i <= $num ; $i++ ){
     $uid = $suid + $i -1;
-    printf ("%03d; ", $i) if ( $debug );
     if ($real){
-    # ($rn,$fn)=split " ", $realusername[$i];
-    # printf ("%s %s," ,ucfirst($rn),uc($fn));
-    print ( "$realusername[$i],");
-    printf ("%s," ,lc($realaccount[$i]));
+        print ( "$realusername[$i],");
+        printf ("%s," ,lc($realaccount[$i]));
     }else{
-    printf ("%s%03d," ,$realname,$i);
-    printf ("%s%03d," ,$name,$i);
+        printf ("%s%0" . $keta . "d," ,$realname,$i);
+        printf ("%s%0" . $keta . "d," ,$name,$i);
     }
     print  ("$spass,");
     print  ("$uid,");
     if ( $real ) {
-    print ( "$realgroup[$i],$realgid[$i]," );
+        print ( "$realgroup[$i],$realgid[$i]," );
     }else{
-    print  ("$gname,");
-    print  ("$sgid,");
+        print  ("$gname,");
+        print  ("$sgid,");
     }
     print  ("$ssrv,");
     print  ("$sroot,");
@@ -138,46 +137,69 @@ for ($i = 1; $i <= $num ; $i++ ){
 
 exit 0;
 
-# -----------------------------------------
-#         S U B R O U T I N E S
-# -----------------------------------------
-sub usage()
-{
-    my $thisScript = `basename $0`;
-    my ($SRV)= @_ ;
-    chomp $SRV;
-    chomp $thisScript;
-    print <<__USE__
-
-#####################################
-              U S A G E
-#####################################
-
-Hi $ENV{USER}.
-
-$thisScript has many switches.
-    --user=sample   ; sample account name.
-    --uid=11025     ; start acount uid number. ( 501 < uid < 2,147,483,649)
-    --gid=11025     ; group id.
-    --group=samples ; sample group name
-    --num=5         ; limit of sample line ( n > 0 ).
-    --passwd=plain_password   ; sample password
-    --homeroot=home ; samaple home root (It's share point not user's home).
-    --homesrv=$SRV  ; samaple home server
-    --shell         ; users shell
-    --help          ; show this message.
-    --debug         ; for debug.
-    --real          ; make users using real user names.
-    ; maximum number of sample is 20.
-
-
-                             Thanks.
-#####################################
-__USE__
-;
-print ("Output example: $0 --num=3\n");
-system ( "$0 --num=3") ;
-print ("\nOutput example: $0 --num=3 --real\n");
-system ( "$0 --num=3 --real ") ;
-}
 __END__
+
+=encoding utf8
+
+=head1 mksamplecsv
+
+B<mksamplecsv> - Make sample user and group list
+
+=head1 SYNOPSIS
+
+    $ B<mksamplecsv> B<--user> 
+    $ B<mksamplecsv> B<-h> | B<--help> | B<-?>
+
+=head1 DESCRIPTION
+
+Make sample user list at ease.
+
+    $ ./mksamplecsv -num 3
+    # Full_name,Account,Password,UID,2nd Group,2nd GID,Home_Server,Network_Home_Directory,Login_Shell
+    Sample User1,sample1,passwd,11025,samples,11025,garuda,home,/bin/bash
+    Sample User2,sample2,passwd,11026,samples,11025,garuda,home,/bin/bash
+    Sample User3,sample3,passwd,11027,samples,11025,garuda,home,/bin/bash
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--user> sample : Sample account name.
+
+=item B<--uid> 11025 : Number of Starting UID. ( 501 < UID < 2,147,483,649)
+
+=item B<--gid> 11025 : Number of Starting GID. ( 501 < GID < 2,147,483,649)
+
+=item B<--group> samples : Sample group name.
+
+=item B<--num> 5 : Number of accounts you want. ( n > 0 ).
+
+=item B<--passwd> password_text : Password text for all of sample users.
+
+=item B<--homeroot> dir_name : Network home directory share point name.
+
+=item B<--homesrv> server.example.com : Home server name.
+
+=item B<--shell> /bin/bash : User's login shell
+
+=item B<--help> : Show this message.
+
+=item B<--debug> : Make debug mode on.
+
+=item B<--real> : Make users using predefined user name. maximum number of samples is 20.
+
+=back
+
+=cut
+
+# for Emacsen
+# Local Variables:
+# mode: cperl
+# cperl-indent-level: 4
+# cperl-close-paren-offset: -4
+# cperl-indent-parens-as-block: t
+# indent-tabs-mode: nil
+# coding: utf-8
+# End:
+
+# vi: set ts=4 sw=4 sts=0 et ft=perl fenc=utf-8 ff=unix :
