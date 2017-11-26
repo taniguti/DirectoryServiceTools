@@ -112,6 +112,7 @@ print "Network_Home_Directory,";
 print "Login_Shell";
 print "\n";
 
+binmode(STDOUT, ":utf8") if ($real);
 my $keta = length($num);
 for ($i = 1; $i <= $num ; $i++ ){
     $uid = $suid + $i -1;
@@ -148,8 +149,8 @@ B<mksamplecsv> - Make sample user and group list
 
 =head1 SYNOPSIS
 
-    $ B<mksamplecsv> B<--user>
-    $ B<mksamplecsv> B<-h> | B<--help> | B<-?>
+    $ mksamplecsv --user
+    $ mksamplecsv -h | --help | -?
 
 =head1 DESCRIPTION
 
@@ -187,7 +188,7 @@ Make sample user list at ease.
 
 =item B<--debug> : Make debug mode on.
 
-=item B<--real> : Make users using predefined user name. maximum number of samples is 20.
+=item B<--real> : Make users using predefined user name. maximum number of samples is 34.
 
 =back
 
