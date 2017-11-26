@@ -101,15 +101,15 @@ if ( $real ){
  }
 
 print "# ";
-print "Full_name,";
-print "Account,";
+print "RealName,";
+print "RecordName,";
 print "Password,";
-print "UID,";
-print "2nd Group,";
-print "2nd GID,";
+print "UniqueID,";
+print "2nd_Group,";
+print "2nd_GID,";
 print "Home_Server,";
 print "Network_Home_Directory,";
-print "Login_Shell";
+print "UserShell";
 print "\n";
 
 binmode(STDOUT, ":utf8") if ($real);
@@ -156,11 +156,10 @@ B<mksamplecsv> - Make sample user and group list
 
 Make sample user list at ease.
 
-    $ ./mksamplecsv -num 3
-    # Full_name,Account,Password,UID,2nd Group,2nd GID,Home_Server,Network_Home_Directory,Login_Shell
-    Sample User1,sample1,passwd,11025,samples,11025,garuda,home,/bin/bash
-    Sample User2,sample2,passwd,11026,samples,11025,garuda,home,/bin/bash
-    Sample User3,sample3,passwd,11027,samples,11025,garuda,home,/bin/bash
+    $ ./mksamplecsv -num 20 | head -3
+    # RealName,RecordName,Password,UniqueID,2nd_Group,2nd_GID,Home_Server,Network_Home_Directory,UserShell
+    Sample User01,sample01,passwd,11025,samples,11025,garuda,home,/bin/bash
+    Sample User02,sample02,passwd,11026,samples,11025,garuda,home,/bin/bash
 
 =head1 OPTIONS
 

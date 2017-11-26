@@ -7,72 +7,72 @@ use Getopt::Long qw(:config posix_default no_ignore_case no_ignore_case_always);
 use Text::ParseWords;
 use Pod::Usage;
 
+binmode(STDOUT, ":utf8");
 
-
-# Parameter definitons
+# Parameter definitions
+my $help;
 my $debug = 0;
-my ($help, $version, $type, $protocol);
-my (%u_dsattr, %g_dsattr);
+my $protocol = 'smb'; # afp or smb
+my $group;
 
-# Optons
+# Attribute type difinition list
+my %u_info = (
+    RecordName  => "",          # oduser02
+    Password  => "",            # ********
+    UniqueID  => "",            # 1002
+    PrimaryGroupID  => 20,      # 20
+    RealName => "",             # OD User02
+    NFSHomeDirectory  => "",    # /Network/Servers/pms01.vmnet3.com/Volumes/Macintosh HD/Shared/smb-homes/oduser02
+    UserShell  => "",           # /bin/bash
+    FirstName => "",            # OD
+    LastName  => "",            # User02
+    EMailAddress  => "",        # oduser02@xmini2.vmnet3.local
+    HomeDirectory => "",        # <home_dir><url>smb\://pms01.vmnet3.com/smb-homes</url><path>oduser02</path></home_dir>
+);
+
+my %g_info = (
+    RecordName => "",
+    PrimaryGroupID => "",
+    GroupMembership => "",
+);
+
+# Options
 GetOptions (
-    'type|t:s'  => \$type,
-    'proto|p:s' => \$protocol,
+    'group|g'  => \$group,
+    'proto|protocol|p:s' => \$protocol,
     'debug|d+'  => \$debug,
     'help|h|?'  => sub { pod2usage(-verbose=>2) },
 ) or pod2usage();
 
-################################################################
-# Attribute type difinition list
-################################################################
-%u_dsattr = (
-  # AttributeKey                # Value
-    FirstName => "",            # OD
-    LastName  => "",            # User02
-    RecordName  => "",          # oduser02
-    Password  => "",            # ********
-    UserShell  => "/bin/bash",  # /bin/bash
-    UniqueID  => "",            # 1002
-    NFSHomeDirectory  => "",    # /Network/Servers/pms01.vmnet3.com/Volumes/Macintosh HD/Shared/smb-homes/oduser02
-    HomeDirectoryQuota  => "",  # 1000000000
-    EMailAddress  => "",        # oduser02@xmini2.vmnet3.local
-    Comment  => "",             # oduser02 note
-    Keywords  => "",            # oduser
-    PrimaryGroupID  => 20,      # 20
-    RealName => "",             # OD User02
-    HomeDirectory => "",        # <home_dir><url>smb\://pms01.vmnet3.com/smb-homes</url><path>oduser02</path></home_dir>
-);
-
-%g_dsattr = (
-    "RecordName" => "",
-    "PrimaryGroupID" => "",
-    "GroupMembership" => "",
-);
-
-$type = "user";
-
-## Output into STDOUT
-# Print definition line.
-if ( $type == "user" ){
-   &print_define(%u_dsattr);
-#}else{
-#   &print_define($type,%g_dsattr);
-}
-
-
-# Print entries.
-if ( $Request eq "Groups" ){
-    &print_grouprecord(@dsattr);
+# Print record format 
+if ($group){
+    &print_define("Groups",sort(keys(%g_info)));
 }else{
-    if ( defined $UseGroupSubDir ){
-    $UseGroupSubDir = "on";
-    }else{
-    $UseGroupSubDir = "/";
-    }
-    &print_userrecord($debug, $Home_via_NFS, $UseGroupSubDir, $smbdrivelabel, $smblogonscript, @dsattr);
+    &print_define("Users",sort(keys(%u_info)));
+    $protocol = 'smb' unless ($protocol);
+    $protocol = lc $protocol;
 }
 
-exit;
+sub print_define(){
+    my $i;
+    my ($request_type, @attr) = @_;
+    my @separaters = ( "0x0A","0x5C","0x3A","0x2C" );
+    my $rectype = "dsRecTypeStandard:$request_type";
+
+    for ( $i = 0; $i <= $#attr; $i++ ) {
+        $attr[$i] = "dsAttrTypeStandard:$attr[$i]";
+    }
+    print ( join (' ', @separaters, $rectype, ($#attr + 1), @attr), "\n");
+}
+
+
+__END__
+# Print record.
+if ($group){
+    &print_grouprecord;
+}else{
+    &print_userrecord;
+}
 
 sub print_userrecord(){
 # mksample.pl
@@ -306,16 +306,14 @@ sub trim (){
 }
 
 sub print_define(){
-    my (%uattr, @separaters, $type, $request_type, $i);
+    my $i;
+    my ($request_type, %uattr) = @_;
+    my @separaters = ( "0x0A","0x5C","0x3A","0x2C" );
+    my $rectype = "dsRecTypeStandard:$request_type";
 
-    ($request_type, %uattr) = @_;
-
-    @separaters = ( "0x0A","0x5C","0x3A","0x2C" );
-    $type = "dsRecTypeStandard:$request_type";
     for ( $i = 0; $i <= $#uattr; $i++ ) {
-    $uattr[$i] = "dsAttrTypeStandard:$uattr[$i]";
+        $uattr[$i] = "dsAttrTypeStandard:$uattr[$i]";
     }
-
     print ( join (' ', @separaters, $type, ($#uattr + 1), @uattr), "\n");
 }
 
@@ -344,36 +342,42 @@ sub get_hostname(){
 
 __END__
 
-sub usage(){
-    my $myf = `/usr/bin/basename $0`;
-    chomp $myf;
-        print <<__USE__
+=encoding utf8
 
-#####################################
-              U S A G E
-#####################################
+=head1 csv2od_import_file
 
-Hi $ENV{USER}.
+B<csv2od_import_file> - Convert csv file to list for dsimport
 
-$myf reads a cvsfile ( or stdin ) which contains user list by csv file format and then output converted list into standerd out. If you add option --smbdrive following single charactor, $myf add information for SMB home directory for each users. If you add option --subdir, user's home are grouped by thier workgroup.  If you provide user homes via NFS, you must use option --nfs or user homes will fail to mount.
-Option --group outputs converted file for group import.
-Option --help will show this message.
-Option --version will show version of this script.
+=head1 SYNOPSIS
 
-csvfile must be like that,
-Sample User01,sample01,passwd,9001,samples,9000,homehostname.domain.net,/Volumes/RAID5HD/Users/home,/bin/bash,500m
+    $ csv2od_import_file --protocol afp 
+    $ csv2od_import_file --group
 
+=head1 DESCRIPTION
+B<csv2od_import_file> reads a cvsfile ( or stdin ) which contains user list by csv file format and then output converted list into standerd out. If you add option --smbdrive following single charactor, B<csv2od_import_file> adds information for SMB home directory for each users. If you add option --subdir, user's home are grouped by thier workgroup.  If you provide user homes via NFS, you must use option --nfs or user homes will fail to mount.
 
-examples)
-   $myf /path/to/csvfile
-   $myf --subdir /path/to/csvfile
-   $myf --nfs --subdir /path/to/csvfile
-   $myf --subdir --smbdrive Z  /path/to/csvfile
-   $myf --smbdrive H  --smblogon logon.bat /path/to/csvfile
-   $myf --group /path/to/csvfile
-   $myf --help --version
+=head1 OPTIONS
 
-Thanks.
+=over 4
 
-__USE__
-}
+=item B<--group> Outputs import file for group.
+
+=item B<--protocol> Protocol for file sharing of network home directory. It must be either afp or smb.
+
+=item B<--help> Show this message.
+
+=back
+
+=cut
+
+# for Emacsen
+# Local Variables:
+# mode: cperl
+# cperl-indent-level: 4
+# cperl-close-paren-offset: -4
+# cperl-indent-parens-as-block: t
+# indent-tabs-mode: nil
+# coding: utf-8
+# End:
+
+# vi: set ts=4 sw=4 sts=0 et ft=perl fenc=utf-8 ff=unix :
