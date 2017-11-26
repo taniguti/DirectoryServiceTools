@@ -1,6 +1,7 @@
 #!/bin/bash
 
 usage(){
+    echo "Change file ower ship from old uid to new uid on whole of disks."
     echo "Type 'sudo $0 -o [OLD_USER_NAME|OLD_UID] -n [NEW_USER_NEME|NEW_UID]'"
 }
 
@@ -32,3 +33,15 @@ do
     chown $NEWUID "$ITEM"
     if [ $isLOCK -eq 1 ]; then chflags uchg   "$ITEM" ; fi
 done
+
+# for Emacsen
+# Local Variables:
+# mode: sh
+# sh-dasic-offset: 4
+# sh-indentation: 4
+# tab-width: 4
+# indent-tabs-mode: nil
+# coding: utf-8
+# End:
+
+# vi: set ts=4 sw=4 sts=4 et ft=sh fenc=utf-8 ff=unix :
