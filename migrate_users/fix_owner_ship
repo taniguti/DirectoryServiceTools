@@ -4,8 +4,6 @@ usage(){
     echo "Type 'sudo $0 -o [OLD_USER_NAME|OLD_UID] -n [NEW_USER_NEME|NEW_UID]'"
 }
 
-if [ `whoami` != "root" ]; then usage ; exit 2; fi
-
 while getopts "n:o:h" opt
 do
     case $opt in
@@ -24,6 +22,8 @@ done
 
 if [ $# -eq 0 ]; then usage ; exit 0; fi
 if [ -z ${NEWID} || -z ${OLDUID} ]; then usage ; exit 1 ; fi
+
+if [ `whoami` != "root" ]; then usage ; exit 2; fi
 
 find / -name Backups.backupdb -prune -or \( -type f -or -type d \) -user $OLDUID -print0  | while read ITEM
 do
