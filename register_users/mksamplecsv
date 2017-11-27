@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use Getopt::Long qw(:config posix_default no_ignore_case no_ignore_case_always);
 use Pod::Usage;
+binmode(STDOUT, ":utf8");
 
 # Default Values
 my $sname   = "sample"; #Sample User accout
@@ -112,7 +113,6 @@ print "Network_Home_Directory,";
 print "UserShell";
 print "\n";
 
-binmode(STDOUT, ":utf8") if ($real);
 my $keta = length($num);
 for ($i = 1; $i <= $num ; $i++ ){
     $uid = $suid + $i -1;

@@ -15,27 +15,6 @@ my $debug = 0;
 my $protocol = 'smb'; # afp or smb
 my $group;
 
-# Attribute type difinition list
-my %u_info = (
-    RecordName  => "",          # oduser02
-    Password  => "",            # ********
-    UniqueID  => "",            # 1002
-    PrimaryGroupID  => 20,      # 20
-    RealName => "",             # OD User02
-    NFSHomeDirectory  => "",    # /Network/Servers/pms01.vmnet3.com/Volumes/Macintosh HD/Shared/smb-homes/oduser02
-    UserShell  => "",           # /bin/bash
-    FirstName => "",            # OD
-    LastName  => "",            # User02
-    EMailAddress  => "",        # oduser02@xmini2.vmnet3.local
-    HomeDirectory => "",        # <home_dir><url>smb\://pms01.vmnet3.com/smb-homes</url><path>oduser02</path></home_dir>
-);
-
-my %g_info = (
-    RecordName => "",
-    PrimaryGroupID => "",
-    GroupMembership => "",
-);
-
 # Options
 GetOptions (
     'group|g'  => \$group,
@@ -44,15 +23,14 @@ GetOptions (
     'help|h|?'  => sub { pod2usage(-verbose=>2) },
 ) or pod2usage();
 
-# Print record format 
+# Print record.
 if ($group){
-    &print_define("Groups",sort(keys(%g_info)));
+    &print_grouprecord();
 }else{
-    &print_define("Users",sort(keys(%u_info)));
-    $protocol = 'smb' unless ($protocol);
-    $protocol = lc $protocol;
+    &print_userrecord();
 }
 
+######################
 sub print_define(){
     my $i;
     my ($request_type, @attr) = @_;
@@ -65,28 +43,31 @@ sub print_define(){
     print ( join (' ', @separaters, $rectype, ($#attr + 1), @attr), "\n");
 }
 
-
-__END__
-# Print record.
-if ($group){
-    &print_grouprecord;
-}else{
-    &print_userrecord;
-}
-
 sub print_userrecord(){
-# mksample.pl
-# 0        1          2        3   4         5
-# RealName,RecordName,password,UID,2nd Group,2nd GID,
-# 6           7         8     9		 10
-# home server,home root,shell,Disk Quota,
-#Sample User01,sample01,passwd,9001,samples,9000,homesrv_fqdn,homedir_root,/pathto/shell,524288000
-
-    my (	$quote_sw, @items, %dsAttr, $userinfo, $SharePoint,
+    my ( $quote_sw, @items, %dsAttr, $userinfo, $SharePoint,
     $SubDir, $path, $homehost, $homehostfqdn, $DEBUG,
     $homeroot, @attr, $i, $drivelabel, $logonscript,
     $NFS_HOME, $myouji, $oname,
     );
+
+    # Attribute type difinition list
+    my @u_info = (
+        RecordName,       #  0 oduser02
+        Password,         #  1 ********
+        UniqueID,         #  2 1002
+        PrimaryGroupID,   #  3
+        RealName,         #  4 OD User02
+        NFSHomeDirectory, #  5 /Network/Servers/pms01.vmnet3.com/Volumes/Macintosh HD/Shared/smb-homes/oduser02
+        UserShell,        #  6 /bin/bash
+        FirstName,        #  7 OD
+        LastName,         #  8 User02
+        EMailAddress      #  9 oduser02@xmini2.vmnet3.local
+        HomeDirectory,    # 10 <home_dir><url>smb\://pms01.vmnet3.com/smb-homes</url><path>oduser02</path></home_dir>
+    );
+
+    &print_define("Users", @u_info);
+    $protocol = 'smb' unless ($protocol);
+    $protocol = lc $protocol;
 
     $quote_sw                 = 1;
     $dsAttr{"AuthMethod"}     = "dsAuthMethodStandard\\:dsAuthClearText";
@@ -96,7 +77,7 @@ sub print_userrecord(){
 
     while(<>){
     chomp;
- 		s/,$//;
+    s/,$//;
 
     next if /^\s*$/;
     next if /^\s*\#/;
@@ -108,8 +89,6 @@ sub print_userrecord(){
     ($myouji, $oname) = split(/ /,$dsAttr{"RealName"});
     $dsAttr{"LastName"}	= "$myouji";
     $dsAttr{"FirstName"}	= "$oname";
-
-
 
     $dsAttr{"RecordName"}   	= lc $items[1];
     $dsAttr{"Password"}		= $items[2];
@@ -239,20 +218,6 @@ sub smbhomeset (){
     return ($profile, $script, $label, $home );
 }
 
-sub cnv2byte(){
-    my ($input) = @_;
-    my $result = -1;
-
-    chomp $input; $input = lc $input;
-
-    $result = $input 			if ($input =~ /^[0-9]*$/   );
-    $result = $1 * 1024 			if ($input =~ /^([0-9]*)k$/ );
-    $result = $1 * 1024 * 1024 		if ($input =~ /^([0-9]*)m$/ );
-    $result = $1 * 1024 * 1024 * 1024 	if ($input =~ /^([0-9]*)g$/ );
-
-    return $result;
-}
-
 sub mkmcxflags(){
     my $mcx;
 
@@ -274,6 +239,14 @@ sub print_grouprecord(){
     );
     $quote_sw = 1;
     @attr = @_;
+
+    my @g_info = (
+        RecordName,      # 0
+        PrimaryGroupID,  # 1
+        GroupMembership, # 2
+    );
+
+    &print_define("Groups", @g_info);
 
     while(<>){
     chomp;
@@ -350,7 +323,7 @@ B<csv2od_import_file> - Convert csv file to list for dsimport
 
 =head1 SYNOPSIS
 
-    $ csv2od_import_file --protocol afp 
+    $ csv2od_import_file --protocol afp
     $ csv2od_import_file --group
 
 =head1 DESCRIPTION
