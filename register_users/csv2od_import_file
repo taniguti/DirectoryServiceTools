@@ -1,0 +1,356 @@
+#!/usr/bin/perl
+
+use utf8;
+use strict;
+use warnings;
+use Getopt::Long qw(:config posix_default no_ignore_case no_ignore_case_always);
+use Text::ParseWords;
+use Pod::Usage;
+
+binmode(STDOUT, ":utf8");
+
+# Parameter definitions
+my $help;
+my $debug = 0;
+my $protocol = 'smb'; # afp or smb
+my $group;
+
+# Options
+GetOptions (
+    'group|g'  => \$group,
+    'proto|protocol|p:s' => \$protocol,
+    'debug|d+'  => \$debug,
+    'help|h|?'  => sub { pod2usage(-verbose=>2) },
+) or pod2usage();
+
+# Print record.
+if ($group){
+    &print_grouprecord();
+}else{
+    &print_userrecord();
+}
+
+######################
+sub print_define(){
+    my $i;
+    my ($request_type, @attr) = @_;
+    my @separaters = ( "0x0A","0x5C","0x3A","0x2C" );
+    my $rectype = "dsRecTypeStandard:$request_type";
+
+    for ( $i = 0; $i <= $#attr; $i++ ) {
+        $attr[$i] = "dsAttrTypeStandard:$attr[$i]";
+    }
+    print ( join (' ', @separaters, $rectype, ($#attr + 1), @attr), "\n");
+}
+
+sub print_userrecord(){
+    my ( $quote_sw, @items, %dsAttr, $userinfo, $SharePoint,
+    $SubDir, $path, $homehost, $homehostfqdn, $DEBUG,
+    $homeroot, @attr, $i, $drivelabel, $logonscript,
+    $NFS_HOME, $myouji, $oname,
+    );
+
+    # Attribute type difinition list
+    my @u_info = (
+        RecordName,       #  0 oduser02
+        Password,         #  1 ********
+        UniqueID,         #  2 1002
+        PrimaryGroupID,   #  3
+        RealName,         #  4 OD User02
+        NFSHomeDirectory, #  5 /Network/Servers/pms01.vmnet3.com/Volumes/Macintosh HD/Shared/smb-homes/oduser02
+        UserShell,        #  6 /bin/bash
+        FirstName,        #  7 OD
+        LastName,         #  8 User02
+        EMailAddress      #  9 oduser02@xmini2.vmnet3.local
+        HomeDirectory,    # 10 <home_dir><url>smb\://pms01.vmnet3.com/smb-homes</url><path>oduser02</path></home_dir>
+    );
+
+    &print_define("Users", @u_info);
+    $protocol = 'smb' unless ($protocol);
+    $protocol = lc $protocol;
+
+    $quote_sw                 = 1;
+    $dsAttr{"AuthMethod"}     = "dsAuthMethodStandard\\:dsAuthClearText";
+    $dsAttr{"PrimaryGroupID"} = "20";	# Group "staff"
+
+    ($DEBUG, $NFS_HOME, $SubDir, $drivelabel, $logonscript, @attr ) = @_ ; # SubDir MUST be "/" or "on"
+
+    while(<>){
+    chomp;
+    s/,$//;
+
+    next if /^\s*$/;
+    next if /^\s*\#/;
+    next if /^,,,/;
+
+    @items = &trim ( quotewords( "," ,$quote_sw, $_ ) ) ;
+
+    $dsAttr{"RealName"}		= $items[0];
+    ($myouji, $oname) = split(/ /,$dsAttr{"RealName"});
+    $dsAttr{"LastName"}	= "$myouji";
+    $dsAttr{"FirstName"}	= "$oname";
+
+    $dsAttr{"RecordName"}   	= lc $items[1];
+    $dsAttr{"Password"}		= $items[2];
+
+    if ( $items[3] =~ /^[0-9]*$/ ){
+    $dsAttr{"UniqueID"}		= $items[3] + 0;
+    }else{
+    next;
+    }
+
+    $dsAttr{"SecondGroup"}		= lc $items[4];
+    if ( $SubDir eq "/" ){
+    $path = $dsAttr{"RecordName"};
+    }else{
+    $path = join ("/", $dsAttr{"SecondGroup"},
+     $dsAttr{"RecordName"});
+    }
+    if ( defined $items[6] ){
+    ($homehost, $homehostfqdn) = &get_hostname($items[6]);
+    }else{
+    next;
+    }
+
+    if ( defined $items[8] ){
+    $dsAttr{"UserShell"}		= lc $items[8];
+    }else{
+    $dsAttr{"UserShell"} = "/dev/null";
+    }
+    if ( defined $items[9] ){
+    $DiskQuotaSize = &cnv2byte($items[9]);
+    $dsAttr{"HomeDirectoryQuota"} = $DiskQuotaSize;
+    $dsAttr{"HomeDirectoryQuota"} = ""
+     if ( $DiskQuotaSize == -1 );
+    }else{
+    $dsAttr{"HomeDirectoryQuota"} = ""
+    }
+
+
+    ( $dsAttr{"SMBProfilePath"},
+      $dsAttr{"SMBScriptPath"},
+      $dsAttr{"SMBHomeDrive"},
+      $dsAttr{"SMBHome"}) = &smbhomeset($dsAttr{"RecordName"},
+        $homehost,
+        $drivelabel,
+        $logonscript );
+
+    $homeroot = `basename $items[7]`;
+    chomp $homeroot;
+
+    $dsAttr{"NFSHomeDirectory"} = join ("",
+    "/Network/Servers/",
+    $homehostfqdn,
+    $items[7],
+    "/",
+    $path);
+
+    $dsAttr{"HomeDirectory"} = join ( "",
+    "<home_dir><url>afp\\://",
+    $homehostfqdn,
+    "/",
+    $homeroot,
+    "</url>",
+    "<path>$path</path></home_dir>",
+    );
+    $dsAttr{"MailAttribute"} = "";
+    $dsAttr{"EMailAddress"}	= "";
+    $dsAttr{"MCXFlags"} = &mkmcxflags();
+
+                ####################################################
+                # Drop AFP network home Attributes for NFS mounted home
+                ####################################################
+                if ( $NFS_HOME ){
+                        $dsAttr{"HomeDirectory"} = "";
+                        $path = "";
+                }
+
+    if ( $DEBUG ){
+    print "#_______________________________________________\n";
+    print "#DEBUG: Realname   : $dsAttr{RealName}\n";
+    print "#DEBUG: RecordName : $dsAttr{RecordName}\n";
+    print "#DEBUG: FirstName : $dsAttr{FirstName}\n";
+    print "#DEBUG: LastName : $dsAttr{LastName}\n";
+    print "#DEBUG: Password   : $dsAttr{Password}\n";
+    print "#DEBUG: UniqueID   : $dsAttr{UniqueID}\n";
+    print "#DEBUG: SecondGroup: $dsAttr{SecondGroup}\n";
+    print "#DEBUG: HomeDir    : $dsAttr{HomeDirectory}\n";
+    print "#DEBUG: path       : $path\n";
+    print "#DEBUG: NFSHOME    : $dsAttr{NFSHomeDirectory}\n";
+    print "#DEBUG: hostname   : $homehost\n";
+    print "#DEBUG: fqdn       : $homehostfqdn\n";
+    print "#DEBUG: Shell      : $dsAttr{UserShell}\n";
+    print "#DEBUG: Quota      : $dsAttr{HomeDirectoryQuota}\n";
+    print "#DEBUG: SMBProfile : $dsAttr{SMBProfilePath}\n";
+    print "#DEBUG: SMBDrive   : $dsAttr{SMBHomeDrive}\n";
+    print "#DEBUG: SMBhome    : $dsAttr{SMBHome}\n";
+    print "#DEBUG: SMBlogon   : $dsAttr{SMBScriptPath}\n";
+    print "#DEBUG: EMailAddress   : $dsAttr{EMailAddress}\n";
+    print "#_______________________________________________\n";
+    }
+
+
+    for ( $i = 0; $i <= $#attr ;$i++){
+    print ":" if ( $i != 0 );
+    print "$dsAttr{$attr[$i]}";
+    }
+    print "\n";
+    }
+}
+
+sub smbhomeset (){
+    my ($profile, $label, $home, $script, $homesrv, $user);
+    ($user, $homesrv, $label, $script) = @_;
+
+    $script  = "" if ( $script eq "none" );
+    if ( $label eq "none"){
+    $label   = "";
+    $profile = "";
+    $script  = "";
+    $home    = "";
+    }else{
+    $label = uc $label;
+    $label = $label . "\\:" unless ( $label =~ /:$/ );
+
+    $home = "\\\\\\\\" . lc $homesrv . "\\\\"  . lc $user;
+    $profile = $home . "\\\\" . "Library\\\\Windows_profiles";
+    }
+    return ($profile, $script, $label, $home );
+}
+
+sub mkmcxflags(){
+    my $mcx;
+
+    $mcx = join ( "",  "<?xml version =\"1.0\" encoding=\"UTF-8\"?>",
+     "<!DOCTYPE plist PUBLIC \"-//Apple ",
+     "Computer//DTD PLIST 1.0//EN\" ",
+     "\"http\\://www.apple.com/DTDs/PropertyList-1.0.dtd\">",
+     "<plist version=\"1.0\"><dict>",
+     "<key>simultaneous_login_enabled</key>",
+     "<false/>" ,
+     "</dict></plist>"
+    );
+    return $mcx;
+}
+
+sub print_grouprecord(){
+    my (	$quote_sw, @items, %groups, %groupmember,
+    $group, @attr, %dsAttr, $i,
+    );
+    $quote_sw = 1;
+    @attr = @_;
+
+    my @g_info = (
+        RecordName,      # 0
+        PrimaryGroupID,  # 1
+        GroupMembership, # 2
+    );
+
+    &print_define("Groups", @g_info);
+
+    while(<>){
+    chomp;
+    next if /^\s*$/;
+    next if /^\s*\#/;
+    @items = &trim ( quotewords( "," ,$quote_sw, $_ ) ) ;
+    $items[1] = lc $items[1]; # This is RecordName
+    $items[4] = lc $items[4]; # This is WorkGroup
+    push ( @{ $groupmember{$items[4]} }, $items[1]);
+    $groups{ $items[4] } =  $items[5]; # This is GID
+    }
+
+    foreach $group (keys %groups){
+    $dsAttr{RecordName} = $group;
+    $dsAttr{GroupMembership} = join (",", @{$groupmember{$group}});
+    $dsAttr{PrimaryGroupID} = $groups{$group};
+
+    for ( $i = 0; $i <= $#attr ;$i++){
+    print ":" if ( $i != 0 );
+    print "$dsAttr{$attr[$i]}";
+    }
+    print "\n";
+    }
+}
+
+sub trim (){
+    my @out = @_;
+    for (@out) { s/^\s+// ; s/\s+$// ; }
+    return wantarray ? @out : $out[0];
+}
+
+sub print_define(){
+    my $i;
+    my ($request_type, %uattr) = @_;
+    my @separaters = ( "0x0A","0x5C","0x3A","0x2C" );
+    my $rectype = "dsRecTypeStandard:$request_type";
+
+    for ( $i = 0; $i <= $#uattr; $i++ ) {
+        $uattr[$i] = "dsAttrTypeStandard:$uattr[$i]";
+    }
+    print ( join (' ', @separaters, $type, ($#uattr + 1), @uattr), "\n");
+}
+
+sub get_hostname(){
+    my $h;
+    my $fqdn;
+    my @dc;
+    my $host;
+
+    ($h) = @_;
+    $h = lc $h;
+    if ( $h =~ /\S.\.\S./ ){
+    $fqdn = $h;
+    ($host, @dc) = split(/\./,$fqdn);
+    }else{
+    $host = $h;
+    $fqdn = `hostname`;
+    if ($fqdn =~ /^[a-z0-9-_].(\.\S.)/) {
+    $fqdn = $h . $1 ;
+    }else{
+    $fqdn = $h;
+    }
+    }
+    return ( $host, $fqdn);
+}
+
+__END__
+
+=encoding utf8
+
+=head1 csv2od_import_file
+
+B<csv2od_import_file> - Convert csv file to list for dsimport
+
+=head1 SYNOPSIS
+
+    $ csv2od_import_file --protocol afp
+    $ csv2od_import_file --group
+
+=head1 DESCRIPTION
+B<csv2od_import_file> reads a cvsfile ( or stdin ) which contains user list by csv file format and then output converted list into standerd out. If you add option --smbdrive following single charactor, B<csv2od_import_file> adds information for SMB home directory for each users. If you add option --subdir, user's home are grouped by thier workgroup.  If you provide user homes via NFS, you must use option --nfs or user homes will fail to mount.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--group> Outputs import file for group.
+
+=item B<--protocol> Protocol for file sharing of network home directory. It must be either afp or smb.
+
+=item B<--help> Show this message.
+
+=back
+
+=cut
+
+# for Emacsen
+# Local Variables:
+# mode: cperl
+# cperl-indent-level: 4
+# cperl-close-paren-offset: -4
+# cperl-indent-parens-as-block: t
+# indent-tabs-mode: nil
+# coding: utf-8
+# End:
+
+# vi: set ts=4 sw=4 sts=0 et ft=perl fenc=utf-8 ff=unix :
